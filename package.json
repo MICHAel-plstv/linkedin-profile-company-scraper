@@ -1,6 +1,6 @@
 {
   "name": "linkedin-profile-company-scraper",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Scraper for getting data about companies and users",
   "main": "index.js",
   "scripts": {

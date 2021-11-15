@@ -6,3 +6,4 @@ config.json
 resultUser.json
 resultCompany.json
 yarn.lock
+package-lock.json
