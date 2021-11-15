@@ -10,10 +10,7 @@
     "build": "webpack --mode production",
     "dev-build": "webpack --watch=true --mode development"
   },
-  "bin": {
-    "linkedin-profile-company-scraper": "./src/cli.js"
-  },
-  "author": "Coya",
+  "author": "mchl_plstv",
   "license": "ISC",
   "devDependencies": {
     "babel-core": "^6.26.3",
@@ -38,7 +35,6 @@
     "whatwg-fetch": "^2.0.4"
   },
   "dependencies": {
-    "@coya/logger": "0.0.5",
     "cheerio": "^1.0.0-rc.3",
     "html-entities": "^1.2.1",
     "node-fetch": "^2.6.0"

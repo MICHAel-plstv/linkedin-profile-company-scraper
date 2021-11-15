@@ -4,8 +4,10 @@ const Entities = require('html-entities').XmlEntities;
 const request = require('node-fetch');
 
 const debugFile = './assets/debug.json';
-const industries = {};
+const currentIndustries = {};
+const industries = [];
 const followingItems = {};
+const employTypes = {};
 
 module.exports = class LinkedinClient {
 	constructor(cookie) {
@@ -20,11 +22,11 @@ module.exports = class LinkedinClient {
 		let processMethod;
 		if (url.match(/^https:\/\/www.linkedin.com\/in\//)) processMethod = processPeopleProfile;
 		else if (url.match(/^https:\/\/www.linkedin.com\/company\//)) {
-			url += url[url.length - 1] == '/' ? 'about/' : '/about/';
+			url += url[url.length - 1] === '/' ? 'about/' : '/about/';
 			processMethod = processCompanyPage;
 		} else throw new Error(`Invalid URL provided ("${url}"), it must be a people profile URL or a company page URL.`);
 
-		if (process.env.NODE_ENV == 'dev')
+		if (process.env.NODE_ENV === 'dev')
 			fs.writeFileSync(debugFile, '');
 
 		const res = await request(url, { headers: { Cookie: `li_at=${this.cookie}` } });
@@ -51,50 +53,54 @@ module.exports = class LinkedinClient {
 				if (!data.included)
 					continue;
 				for (let item of data.included) {
-					// if (index < 20) {
-					// 	console.log(34445, data, index);
-					// }
-
 					processMethod(item, result);
-					if (process.env.NODE_ENV == 'dev')
+					if (process.env.NODE_ENV === 'dev')
 						fs.appendFileSync(debugFile, JSON.stringify(item, null, 4) + '\n');
 				}
 			}
-
 			// this company or people does not exist
 			if (!result.firstName && !result.name)
 				return null;
 		}
-
 		return result;
 	}
 };
 
 // private method
 function processPeopleProfile(item, result) {
-	if (item.$type == 'com.linkedin.voyager.dash.common.Industry' && item.name) {
-		industries[item.entityUrn] = item.name;
-	}
-	if (item.$type == 'com.linkedin.voyager.dash.identity.profile.Profile' && item.objectUrn) {
+	if (item.$type === 'com.linkedin.voyager.dash.common.Industry' && item.name) {
+		currentIndustries[item.entityUrn] = item.name;
+		industries.push(item.name);
+	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.Profile' && item.objectUrn) {
 		result.firstName = item.firstName;
 		result.lastName = item.lastName;
 		result.headline = item.headline;
 		result.location = item.locationName;
+		result.multiLocaleLastName = item.multiLocaleLastName;
+		result.multiLocaleFirstName = item.multiLocaleFirstName;
+		result.multiLocaleHeadline = item.multiLocaleHeadline;
+		result.supportedLocales = item.supportedLocales?.map(item => ({"country": item.country, "language": item.language}));
+		result.id = item.publicIdentifier;
+		result.trackingId = item.trackingId;
 		result.address = item.address;
-		result.industry = industries[item['*industry']];
+		result.industry = currentIndustries[item['*industry']];
+		result.industriesList = industries;
 		result.summary = item.summary;
+		if (result.birthDateOn) {
+			result.birthDate = item.birthDateOn;
+		}
 		if (result.birthDate) {
 			result.birthDate = item.birthDate;
 			delete result.birthDate.$type;
 		}
-	} else if ((item.$recipeTypes && item.$recipeTypes[0]) === 'com.linkedin.voyager.dash.deco.identity.profile.Geo') {
+	} else if (item.$type === 'com.linkedin.voyager.dash.common.Geo' && item.defaultLocalizedNameWithoutCountryName) {
 		const [region, city, country] = item.defaultLocalizedName.split(',');
 		result.geo = {
 			region: region?.trim(), city: city?.trim(), country: country?.trim()
 		}
-	} else if (item.$type == 'com.linkedin.voyager.common.FollowingInfo' && item.followerCount) {
+	} else if (item.$type === 'com.linkedin.voyager.common.FollowingInfo' && item.followerCount) {
 		result.connections = item.followerCount;
-	} else if (item.$type == 'com.linkedin.voyager.dash.identity.profile.Position') {
+	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.Position' && item.dateRange) {
 		if (!result.positions) {
 			result.positions = [];
 		};
@@ -104,7 +110,11 @@ function processPeopleProfile(item, result) {
 			company: item.companyName,
 			location: item.locationName,
 			description: item.description,
-			dateRange: item.dateRange
+			dateRange: item.dateRange,
+			multiLocaleCompany: item.multiLocaleCompanyName,
+			multiLocaleLocation: item.multiLocaleLocationName,
+			multiLocaleDescription: item.multiLocaleDescription,
+			employTypes: employTypes[item.employmentTypeUrn]
 		};
 
 		if (position.dateRange) {
@@ -120,17 +130,23 @@ function processPeopleProfile(item, result) {
 			}
 		};
 
-		item.dateRange?.start?.month && result.positions.push(position);
-	} else if (item.$type == 'com.linkedin.voyager.dash.identity.profile.Education') {
+		result.positions.push(position);
+	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.EmploymentType') {
+		employTypes[item.entityUrn] = item.name;
+	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.Education' && item.dateRange) {
 		if (!result.education) {
 			result.education = [];
 		}
 
 		const degree = {
 			degree: item.degreeName,
+			description: item.description,
 			school: item.schoolName,
 			field: item.fieldOfStudy,
-			dateRange: item.dateRange
+			dateRange: item.dateRange,
+			multiLocaleSchoolName: item.multiLocaleSchoolName,
+			multiLocaleFieldOfStudy: item.multiLocaleFieldOfStudy,
+			multiLocaleDegreeName: item.multiLocaleDegreeName,
 		};
 
 		if (degree.dateRange) {
@@ -145,13 +161,14 @@ function processPeopleProfile(item, result) {
 				delete degree.dateRange.end.$recipeTypes;
 			}
 		};
-		item.dateRange && result.education.push(degree);
-	} else if (item.$type == 'com.linkedin.voyager.dash.identity.profile.Skill') {
+
+		result.education.push(degree);
+	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.Skill') {
 		if (!result.skills) {
 			result.skills = [];
 		}
 		result.skills.push(item.name);
-	} else if (item.$type == 'com.linkedin.voyager.dash.identity.profile.Language') {
+	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.Language') {
 		if (!result.languages) {
 			result.languages = [];
 		}
@@ -162,13 +179,11 @@ function processPeopleProfile(item, result) {
 
 // private method
 function processCompanyPage(item, result) {
-	if (item.$type == 'com.linkedin.voyager.common.Industry') {
+	if (item.$type === 'com.linkedin.voyager.common.Industry') {
 		industries[item.entityUrn] = item.localizedName;
-	}
-	else if (item.$type == 'com.linkedin.voyager.common.FollowingInfo') {
+	}	else if (item.$type === 'com.linkedin.voyager.common.FollowingInfo') {
 		followingItems[item.entityUrn] = item.followerCount;
-	}
-	else if (item.$type == 'com.linkedin.voyager.organization.Company' && item.staffCount) {
+	}	else if (item.$type === 'com.linkedin.voyager.organization.Company' && item.staffCount) {
 		result.name = item.name;
 		result.universalName = item.universalName;
 		result.tagline = item.tagline;
@@ -176,7 +191,7 @@ function processCompanyPage(item, result) {
 		result.industry = industries[item['*companyIndustries'][0]];
 		result.type = item.companyType ? item.companyType.localizedName : null;
 		result.website = item.companyPageUrl;
-		result.companySize = item.staffCountRange.start + (item.staffCountRange.end ? '-' + item.staffCountRange.end : '+') + ' employees';
+		result.companySize = {"start": item?.staffCountRange?.start, 'end': item?.staffCountRange?.end};
 		result.membersOnLinkedin = item.staffCount;
 		result.headquarters = item.headquarter;
 		result.companyType = item.companyType.localizedName;
@@ -184,10 +199,16 @@ function processCompanyPage(item, result) {
 		result.specialties = item.specialities;
 		result.followers = followingItems[item[['*followingInfo']]];
 		result.phone = item?.phone;
-		result.url = item?.url;
+		result.linkedinUrl = item?.url;
 
 		if (result.headquarters) {
 			delete result.headquarters.$type;
+		}
+	} else if (item["$recipeTypes"]?.includes('com.linkedin.voyager.dash.deco.organization.CompanyStockQuote')) {
+		result.stock = {
+			'stockExchange': item.stockQuote?.stockExchange,
+			'stockSymbol': item.stockQuote?.stockSymbol,
+			'currency': item.stockQuote?.currency,
 		}
 	}
 }
