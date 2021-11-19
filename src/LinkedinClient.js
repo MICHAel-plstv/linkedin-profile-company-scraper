@@ -130,7 +130,7 @@ function processPeopleProfile(item, result) {
 			}
 		};
 
-		result.positions.push(position);
+		position.title &&	result.positions.push(position);
 	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.EmploymentType') {
 		employTypes[item.entityUrn] = item.name;
 	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.Education' && item.dateRange) {
@@ -184,31 +184,33 @@ function processCompanyPage(item, result) {
 	}	else if (item.$type === 'com.linkedin.voyager.common.FollowingInfo') {
 		followingItems[item.entityUrn] = item.followerCount;
 	}	else if (item.$type === 'com.linkedin.voyager.organization.Company' && item.staffCount) {
+		console.log(234, item.companyType)
 		result.name = item.name;
 		result.universalName = item.universalName;
 		result.tagline = item.tagline;
 		result.description = item.description;
 		result.industry = industries[item['*companyIndustries'][0]];
-		result.type = item.companyType ? item.companyType.localizedName : null;
+		result.type = item.companyType?.localizedName;
 		result.website = item.companyPageUrl;
-		result.companySize = {"start": item?.staffCountRange?.start, 'end': item?.staffCountRange?.end};
+		result.companySize = {"start": item.staffCountRange?.start, 'end': item.staffCountRange?.end};
 		result.membersOnLinkedin = item.staffCount;
 		result.headquarters = item.headquarter;
-		result.companyType = item.companyType.localizedName;
 		result.foundedYear = item.foundedOn?.year;
-		result.specialties = item.specialities;
 		result.followers = followingItems[item[['*followingInfo']]];
 		result.phone = item?.phone;
 		result.linkedinUrl = item?.url;
+		result.specialities = item?.specialities;
 
 		if (result.headquarters) {
 			delete result.headquarters.$type;
 		}
 	} else if (item["$recipeTypes"]?.includes('com.linkedin.voyager.dash.deco.organization.CompanyStockQuote')) {
-		result.stock = {
-			'stockExchange': item.stockQuote?.stockExchange,
-			'stockSymbol': item.stockQuote?.stockSymbol,
-			'currency': item.stockQuote?.currency,
+		result.stock = item.stockQuote;
+
+		if (result.stock) {
+			delete result.stock.$type;
+			delete result.stock.$recipeTypes;
+			delete result.stock.disclaimerUrl;
 		}
 	}
 }
