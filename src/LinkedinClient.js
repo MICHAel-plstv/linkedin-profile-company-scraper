@@ -8,7 +8,6 @@ const currentIndustries = {};
 const industries = [];
 const followingItems = {};
 const employTypes = {};
-const arrPositions = [];
 
 module.exports = class LinkedinClient {
 	constructor(cookie) {
@@ -63,6 +62,11 @@ module.exports = class LinkedinClient {
 			if (!result.firstName && !result.name)
 				return null;
 		}
+
+		if(result.positions) {
+			result.positions = sortArrByYearAndMonth(result.positions)
+		};
+
 		return result;
 	}
 };
@@ -151,8 +155,7 @@ function processPeopleProfile(item, result) {
 			}
 		};
 
-		arrPositions.push(position);
-		position.title &&	result.positions.push(sortArrByYearAndMonth(arrPositions));
+		position.title &&	result.positions.push(position);
 	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.EmploymentType') {
 		employTypes[item.entityUrn] = item.name;
 	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.Education' && item.schoolName) {
