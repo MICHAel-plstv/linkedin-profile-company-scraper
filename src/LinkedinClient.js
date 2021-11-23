@@ -8,6 +8,7 @@ const currentIndustries = {};
 const industries = [];
 const followingItems = {};
 const employTypes = {};
+const arrPositions = [];
 
 module.exports = class LinkedinClient {
 	constructor(cookie) {
@@ -66,6 +67,15 @@ module.exports = class LinkedinClient {
 	}
 };
 
+function sortArrByYearAndMonth (arr) {
+  return arr.sort((a, b) => {
+    if (b.dateRange.start.year === a.dateRange.start.year) {
+      return b.dateRange.start.month - a.dateRange.start.month
+    }
+    return (b.dateRange.start.year - a.dateRange.start.year)
+  });
+};
+
 // private method
 function processPeopleProfile(item, result) {
 	if (item.$type === 'com.linkedin.voyager.dash.common.Industry' && item.name) {
@@ -94,10 +104,21 @@ function processPeopleProfile(item, result) {
 			delete result.birthDate.$type;
 		}
 	} else if (item.$type === 'com.linkedin.voyager.dash.common.Geo' && item.defaultLocalizedNameWithoutCountryName) {
-		const [region, city, country] = item.defaultLocalizedName.split(',');
-		result.geo = {
-			region: region?.trim(), city: city?.trim(), country: country?.trim()
-		}
+		const geo = item.defaultLocalizedName.split(',');
+			if (geo.length === 1) {
+				const [ country = ''] = item.defaultLocalizedName.split(',');
+				result.geo = { country: country?.trim() };
+			} else if (geo.length === 2) {
+				const [ city = '', country = ''] = item.defaultLocalizedName.split(',');
+				result.geo = {
+					city: city?.trim(), district: city?.trim(), country: country?.trim()
+				};
+			} else {
+				const [ city = '', district = '', country = ''] = item.defaultLocalizedName.split(',');
+				result.geo = {
+					city: city?.trim(), district: district?.trim(), country: country?.trim()
+				};
+			}
 	} else if (item.$type === 'com.linkedin.voyager.common.FollowingInfo' && item.followerCount) {
 		result.connections = item.followerCount;
 	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.Position' && item.dateRange) {
@@ -130,7 +151,8 @@ function processPeopleProfile(item, result) {
 			}
 		};
 
-		position.title &&	result.positions.push(position);
+		arrPositions.push(position);
+		position.title &&	result.positions.push(sortArrByYearAndMonth(arrPositions));
 	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.EmploymentType') {
 		employTypes[item.entityUrn] = item.name;
 	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.Education' && item.schoolName) {

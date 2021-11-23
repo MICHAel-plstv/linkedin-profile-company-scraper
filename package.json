@@ -1,6 +1,6 @@
 {
   "name": "linkedin-profile-company-scraper",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Scraper for getting data about companies and users",
   "main": "index.js",
   "scripts": {
@@ -8,7 +8,8 @@
     "start": "cross-env NODE_ENV=dev nodemon --ignore 'assets/*' src/server.js",
     "forever": "NODE_ENV=production forever --id linkedin start src/server.js",
     "build": "webpack --mode production",
-    "dev-build": "webpack --watch=true --mode development"
+    "dev-build": "webpack --watch=true --mode development",
+    "pub": "npm publish"
   },
   "author": "mchl_plstv",
   "license": "ISC",
