@@ -158,7 +158,7 @@ function processPeopleProfile(item, result) {
 		position.title &&	result.positions.push(position);
 	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.EmploymentType') {
 		employTypes[item.entityUrn] = item.name;
-	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.Education' && item.schoolName) {
+	} else if (item.$type === 'com.linkedin.voyager.dash.identity.profile.Education' && item.degreeName) {
 		if (!result.education) {
 			result.education = [];
 		}
