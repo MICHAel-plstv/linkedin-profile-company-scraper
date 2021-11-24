@@ -209,7 +209,6 @@ function processCompanyPage(item, result) {
 	}	else if (item.$type === 'com.linkedin.voyager.common.FollowingInfo') {
 		followingItems[item.entityUrn] = item.followerCount;
 	}	else if (item.$type === 'com.linkedin.voyager.organization.Company' && item.staffCount) {
-		console.log(234, item.companyType)
 		result.name = item.name;
 		result.universalName = item.universalName;
 		result.tagline = item.tagline;
